@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel v3.0</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --l1-bg: #d4edda; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; color: #333; font-size: 13px; }
+        .nav-bar { background: var(--primary); color: white; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .nav-bar a { color: white; text-decoration: none; border: 1px solid white; padding: 3px 10px; border-radius: 3px; }
+        .main-tabs { border-bottom: 2px solid #ccc; margin-bottom: 15px; }
+        .main-tab { padding: 10px; text-decoration: none; color: #777; font-weight: bold; margin-right: 5px; display: inline-block; }
+        .main-tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+        .tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
+        .tab { padding: 5px 10px; background: #ddd; text-decoration: none; color: #555; border-radius: 3px; font-weight: bold; }
+        .tab.active { background: var(--accent); color: white; }
+        .grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        .card { background: white; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, textarea { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 8px; border: none; background: var(--success); color: white; cursor: pointer; font-weight: bold; }
+        .btn-mail { background: #8e44ad; color: white; padding: 5px 10px; text-decoration: none; font-weight: bold; border-radius: 3px; font-size: 12px; display: inline-block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        th, td { padding: 5px; border: 1px solid #eee; text-align: left; vertical-align: top; }
+        th { background: #f0f0f0; }
+        .sub-table { background: #fff; font-size: 12px; width: 100%; margin-top: 5px; border: 1px solid #ddd; }
+        .sub-table th { background: #e8e8e8; }
+        .best-price { background: var(--l1-bg); color: #155724; font-weight: bold; }
+        .stat-badge { background: #eee; padding: 2px 5px; border-radius: 3px; font-size: 10px; color: #555; margin-left: 5px; }
+        .drop-val { color: #d35400; font-weight: bold; }
+        .user-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; align-items: center; }
+        .inactive { color: #999; }
+        .toggle-btn { font-size: 10px; text-decoration: underline; cursor: pointer; color: blue; margin-left: 10px; }
+        .section-header { font-size: 11px; font-weight: bold; color: #888; margin-top: 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div class="nav-bar">
+    <div>ADMIN | {{ session['user'] }}</div>
+    <a href="/logout">Wyloguj</a>
+</div>
+
+<div class="main-tabs">
+    <a href="/admin?view=active" class="main-tab {% if view == 'active' %}active{% endif %}">OTWARTE</a>
+    <a href="/admin?view=closed" class="main-tab {% if view == 'closed' %}active{% endif %}">ZAMKNIĘTE</a>
+</div>
+
+<div class="tabs">
+    {% if view == 'active' %}
+        <a href="/admin?view=active" class="tab {% if not sel_id %}active{% endif %}">DASHBOARD</a>
+        {% for ex in open_ex %}
+            <a href="/admin?view=active&exchange_id={{ ex[0] }}" class="tab {% if sel_id == ex[0] %}active{% endif %}">{{ ex[1] }}</a>
+        {% endfor %}
+    {% else %}
+        {% for ex in closed_ex %}
+            <a href="/admin?view=closed&exchange_id={{ ex[0] }}" class="tab {% if sel_id == ex[0] %}active{% endif %}">{{ ex[1] }}</a>
+        {% endfor %}
+    {% endif %}
+</div>
+
+{% if not sel_id and view == 'active' %}
+<div class="grid">
+    <div class="card">
+        <h3>Nowa Giełda</h3>
+        <div style="background:#fff3cd; padding:5px; text-align:center; margin-bottom:10px;">
+            1 EUR = {{ live_eur }} | 1 USD = {{ live_usd }}
+        </div>
+        <form method="post" enctype="multipart/form-data">
+            <label>Nazwa</label><input type="text" name="exchange_name" required>
+            <label>Kategoria</label>
+            <select name="category">
+                <option value="Spedycja">Spedycja</option>
+                <option value="Material">Materiał</option>
+                <option value="Wycena">Wycena</option>
+            </select>
+            <label>Deadline</label><input type="datetime-local" name="deadline" required>
+            <label>Opis</label><textarea name="desc" rows="3"></textarea>
+            
+            <div style="display:flex; gap:5px; align-items:center; margin-bottom:10px;">
+                <input type="checkbox" name="notify_enabled" id="notify" style="width:auto;"> 
+                <label for="notify" style="color:blue; font-weight:bold;">Włącz powiadomienia e-mail (Auto-Alert)</label>
+            </div>
+
+            <div style="display:flex; gap:5px">
+                <input type="text" name="eur_rate" value="{{ live_eur }}">
+                <input type="text" name="usd_rate" value="{{ live_usd }}">
+            </div>
+            <label>PDF Giełdy</label>
+            <input type="file" name="af1" accept=".pdf">
+            <input type="file" name="af2" accept=".pdf">
+            <button type="submit" class="btn">Utwórz</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Dostawcy</h3>
+        <div class="tabs" style="margin-bottom:10px;">
+            <a href="/admin?user_cat=Spedycja" class="tab {% if user_cat_tab=='Spedycja' %}active{% endif %}" style="font-size:11px;">SPEDYCJA</a>
+            <a href="/admin?user_cat=Material" class="tab {% if user_cat_tab=='Material' %}active{% endif %}" style="font-size:11px;">MATERIAŁ</a>
+            <a href="/admin?user_cat=Wycena" class="tab {% if user_cat_tab=='Wycena' %}active{% endif %}" style="font-size:11px;">WYCENA</a>
+        </div>
+
+        <form action="/register" method="post" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;">
+            <input type="text" name="username" placeholder="Email/Login" required style="width:100%">
+            <input type="text" name="password" placeholder="Hasło" required style="width:48%">
+            <input type="hidden" name="category" value="{{ user_cat_tab }}">
+            <button type="submit" class="btn" style="width:48%;">Dodaj</button>
+        </form>
+
+        <div style="max-height:200px; overflow-y:auto;">
+            <div class="section-header">AKTYWNI</div>
+            {% for u in all_users_list %}
+                {% if u[3] == user_cat_tab and u[2] == 1 %}
+                <div class="user-row">
+                    <span>🟢 {{ u[1] }}</span>
+                    <div>
+                        <a href="/toggle_user/{{ u[0] }}" class="toggle-btn">Dezaktywuj</a>
+                        <a href="/delete_user/{{ u[0] }}" class="toggle-btn" style="color:red" onclick="return confirm('Usunąć?')">X</a>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="section-header" style="margin-top:15px;">NIEAKTYWNI</div>
+            {% for u in all_users_list %}
+                {% if u[3] == user_cat_tab and u[2] == 0 %}
+                <div class="user-row inactive">
+                    <span>🔴 {{ u[1] }}</span>
+                    <div>
+                        <a href="/toggle_user/{{ u[0] }}" class="toggle-btn">Aktywuj</a>
+                        <a href="/delete_user/{{ u[0] }}" class="toggle-btn" style="color:red" onclick="return confirm('Usunąć?')">X</a>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% for item in ex_details %}
+{% set ex = item.info %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+            <h2>{{ ex[1] }} <small>({{ ex[2] }})</small></h2>
+            <div>{{ ex[10] }}</div>
+            {% if ex[11] %}<div style="color:blue; font-size:10px; margin-top:2px;">🔔 Auto-Powiadomienia włączone</div>{% endif %}
+        </div>
+        <div>
+            <a href="{{ item.mailto }}" class="btn-mail">📧 Zaproszenia (Mailto)</a>
+            <a href="/toggle_lock/{{ ex[0] }}" class="btn" style="width:auto; background:#3498db; padding:5px 10px; font-size:12px;">
+                {% if ex[4] %}Odblokuj{% else %}Zablokuj{% endif %}
+            </a>
+        </div>
+    </div>
+    
+    <div style="background:#f9f9f9; padding:10px; margin:10px 0;">
+        <strong>Dodaj pozycję:</strong>
+        <form method="post" enctype="multipart/form-data" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:5px; align-items:end;">
+            <input type="hidden" name="add_item" value="1">
+            <input type="hidden" name="exchange_id" value="{{ ex[0] }}">
+            <div><label>Nazwa</label><input type="text" name="name" required></div>
+            
+            {% if ex[2] == 'Material' %}
+                <div><label>Ilość (szt)</label><input type="text" name="qty"></div>
+                <div><label>Długość (m)</label><input type="text" name="len"></div>
+                <div><label>Waga (kg/m)</label><input type="text" name="kg_m"></div>
+                <div><label>Waga Total</label><input type="text" name="net" placeholder="Auto"></div>
+            {% elif ex[2] == 'Wycena' %}
+                <div><label>Sztuki</label><input type="text" name="qty"></div>
+            {% elif ex[2] == 'Spedycja' %}
+                <div><label>Waga Netto</label><input type="text" name="net"></div>
+                <div><label>Waga Brutto</label><input type="text" name="gross"></div>
+                <div><label>Objętość</label><input type="text" name="vol"></div>
+                <div><label>Kod HS</label><input type="text" name="hs"></div>
+                <div><label>PDF</label><input type="file" name="item_file" accept=".pdf"></div>
+            {% endif %}
+            
+            <button type="submit" class="btn">+</button>
+        </form>
+    </div>
+
+    <table>
+        <tr style="background:#eee;">
+            <th>Pozycja</th>
+            {% if ex[2] == 'Material' %}<th>Parametry</th><th>Waga</th>{% endif %}
+            {% if ex[2] == 'Wycena' %}<th>Sztuki</th>{% endif %}
+            {% if ex[2] == 'Spedycja' %}<th>Wagi/Obj</th><th>HS</th><th>Plik</th>{% endif %}
+            <th>Akcja</th>
+        </tr>
+        {% for obj in item.mats_offers %}
+        {% set m = obj.data %}
+        <tr style="border-top:2px solid #aaa;">
+            <td>
+                <strong>{{ m[2] }}</strong>
+                {% if ex[2] != 'Spedycja' and obj.offers %}
+                <br>
+                <span class="stat-badge">Śr: {{ obj.stats.avg }}</span>
+                <span class="stat-badge">Odch: {{ obj.stats.std }}</span>
+                {% endif %}
+            </td>
+            {% if ex[2] == 'Material' %}
+                <td>{{ m[6] }} szt x {{ m[8] }}m<br>({{ m[7] }} kg/m)</td>
+                <td>{{ m[3] }} kg</td>
+            {% endif %}
+            {% if ex[2] == 'Wycena' %}<td>{{ m[6] }}</td>{% endif %}
+            {% if ex[2] == 'Spedycja' %}
+                <td>{{ m[3] }} / {{ m[4] }} / {{ m[5] }}</td>
+                <td>{{ m[9] }}</td>
+                <td>{% if m[10] %}<a href="/static/uploads/{{ m[10] }}" target="_blank">PDF</a>{% endif %}</td>
+            {% endif %}
+            <td><a href="/delete_material/{{ m[0] }}" style="color:red;">X</a></td>
+        </tr>
+        
+        {% if ex[2] != 'Spedycja' and obj.offers %}
+        <tr>
+            <td colspan="5" style="padding:5px 20px;">
+                <table class="sub-table">
+                    <tr><th>Dostawca</th><th>Start (Max)</th><th>Aktualna (Min)</th><th>Zejście %</th><th>Info</th><th>Ranking</th></tr>
+                    {% for o in obj.offers %}
+                    <tr {% if o.is_best %}class="best-price"{% endif %}>
+                        <td>{{ o.user }}</td>
+                        <td>{{ o.start_pln }} PLN</td>
+                        <td>{{ o.pln }} PLN</td>
+                        <td class="{% if o.drop_pct > 0 %}drop-val{% endif %}">{{ o.drop_pct }}%</td>
+                        <td>{% if o.sub %}⚠️ ZAMIENNIK: {{ o.sub }}{% endif %}</td>
+                        <td>{{ o.label }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </table>
+
+    {% if ex[2] == 'Spedycja' %}
+    <h4>Ranking Ofert Spedycji</h4>
+    <table>
+        <tr style="background:#eee;"><th>Dostawca</th><th>Start (Max)</th><th>Aktualna (Min)</th><th>Zejście %</th><th>Opis</th><th>Ranking</th></tr>
+        {% for s in item.shipping_stats %}
+        <tr {% if s.is_best %}style="background:#d4edda; font-weight:bold;"{% endif %}>
+            <td>{{ s.user }}</td>
+            <td>{{ s.start_total }} PLN</td>
+            <td>{{ s.curr_total }} PLN</td>
+            <td class="{% if s.drop_pct > 0 %}drop-val{% endif %}">{{ s.drop_pct }}%</td>
+            <td style="font-size:11px;">{{ s.desc }}</td>
+            <td>{{ s.label }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+{% endfor %}
+
+</body>
+</html>

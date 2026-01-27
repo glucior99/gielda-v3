@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logowanie</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Zapobiega paskom przewijania przy rozmyciu */
+        }
+
+        /* WARSTWA TŁA */
+        .bg-image {
+            position: fixed;
+            top: -10px; left: -10px; /* Margines na blur */
+            width: calc(100% + 20px);
+            height: calc(100% + 20px);
+            background: url('/static/tlo.png') no-repeat center center;
+            background-size: cover;
+            filter: blur(8px); /* Rozmycie */
+            z-index: -1;
+        }
+
+        /* OKNO LOGOWANIA */
+        .login-card {
+            background: rgba(255, 255, 255, 0.9); /* Biały z lekką przezroczystością */
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 300px;
+        }
+
+        h2 { margin-bottom: 20px; color: #333; }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        button:hover { background: #34495e; }
+        
+        .flash { color: red; margin-bottom: 10px; font-size: 14px; }
+        .logo { font-size: 40px; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-image"></div>
+
+    <div class="login-card">
+        <span class="logo">🔐</span>
+        <h2>Panel Logowania</h2>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            <input type="text" name="username" placeholder="Login" required>
+            <input type="password" name="password" placeholder="Hasło" required>
+            <button type="submit">Zaloguj się</button>
+        </form>
+    </div>
+
+</body>
+</html>
