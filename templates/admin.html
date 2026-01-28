@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>NECKS Portal Admin v5.4</title>
+    <title>NECKS Portal Admin v5.5</title>
     <style>
         :root { --primary: #D32F2F; --nav: #1A237E; --bg: #f4f6f8; --card: #ffffff; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); padding: 20px; color: #333; font-size: 13px; margin: 0; }
@@ -20,6 +20,7 @@
         input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         .btn { padding: 8px 15px; background: var(--nav); color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 12px; }
         .btn-danger { background: var(--primary); }
+        .btn-green { background: #2e7d32; }
         .btn-sm { padding: 4px 8px; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         th { text-align: left; padding: 10px; background: #eee; }
@@ -204,7 +205,8 @@
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <h2 style="margin:0; color:var(--nav);">{{ ex[1] }}</h2>
                 <div style="display:flex; gap:5px;">
-                    <a href="{{ item.mailto }}" class="btn" style="background:#f39c12;">✉️ Zaproś</a>
+                    {% if view == 'open' %}<a href="{{ item.mailto }}" class="btn" style="background:#f39c12;">✉️ Zaproś (Outlook)</a>{% endif %}
+                    {% if view == 'archive' %}<a href="/export_csv/{{ ex[0] }}" class="btn btn-green">📥 Pobierz Raport (Excel)</a>{% endif %}
                     {% if view != 'archive' %}<a href="/toggle_lock/{{ ex[0] }}" class="btn" style="background:#777;">{{ 'Otwórz' if ex[4] else 'Zamknij' }}</a>{% endif %}
                     {% if view == 'closed' %}
                         <form method="post" style="display:inline;"><input type="hidden" name="form_type" value="archive_exchange"><input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}"><input type="hidden" name="eid" value="{{ ex[0] }}"><input type="text" name="folder_name" placeholder="Folder" style="width:80px; padding:6px;"><button class="btn">Archiwum</button></form>
@@ -216,10 +218,7 @@
             {% if view != 'archive' %}
             <div style="background:#f1f8e9; padding:15px; margin-bottom:15px; border-radius:4px;">
                 <form method="post">
-                    <input type="hidden" name="form_type" value="edit_exchange_details">
-                    <input type="hidden" name="eid" value="{{ ex[0] }}">
-                    <input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}">
-                    
+                    <input type="hidden" name="form_type" value="edit_exchange_details"><input type="hidden" name="eid" value="{{ ex[0] }}"><input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}">
                     {% if ex[2] == 'Spedycja' %}
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
                         <div class="form-group"><label class="form-label">Incoterms</label><select name="incoterms"><option value="{{ ex[14] }}">{{ ex[14] }}</option><option value="EXW">EXW</option><option value="FOB">FOB</option><option value="DAP">DAP</option></select></div>
@@ -227,24 +226,22 @@
                         <div class="form-group"><label class="form-label">Data</label><input type="text" name="pickup" value="{{ ex[16] }}"></div>
                     </div>
                     {% endif %}
-                    
                     <div class="form-group"><label class="form-label">Opis</label><textarea name="desc" rows="1">{{ ex[10] }}</textarea></div>
                     
-                    {% if view == 'closed' %}
                     <div class="form-group" style="background:#fff9c4; padding:5px; border:1px solid #fbc02d;">
-                        <label class="form-label">Kod Odprawy Celnej (Globalny - 18 znaków, wymagany do archiwizacji)</label>
-                        <input type="text" name="customs_code_global" value="{{ ex[17] if ex[17] else '' }}" maxlength="18" placeholder="Wpisz 18-znakowy kod">
+                        {% if ex[2] == 'Spedycja' %}
+                            <label class="form-label">Kod Odprawy Celnej (18 znaków, wymagany do archiwizacji)</label>
+                            <input type="text" name="customs_code_global" value="{{ ex[17] if ex[17] else '' }}" maxlength="18" placeholder="Wpisz 18-znakowy kod">
+                        {% else %}
+                            <label class="form-label">Data Dostawy (Wymagana do archiwizacji)</label>
+                            <input type="text" name="delivery_date" value="{{ ex[18] if ex[18] else '' }}" placeholder="np. 2024-05-01">
+                        {% endif %}
                     </div>
-                    {% endif %}
 
                     <table>
-                        {% if ex[2] == 'Spedycja' %}
-                            <tr><th>Pozycja</th><th>Netto</th><th>Brutto</th><th>Vol</th><th>HS</th></tr>
-                        {% elif ex[2] == 'Material' %}
-                            <tr><th>Pozycja</th><th>Ilość (szt)</th><th>Laga (m)</th><th>kg/m</th><th>Waga Total (kg)</th></tr>
-                        {% else %}
-                            <tr><th>Pozycja</th><th>Sztuki</th></tr>
-                        {% endif %}
+                        {% if ex[2] == 'Spedycja' %}<tr><th>Pozycja</th><th>Netto</th><th>Brutto</th><th>Vol</th><th>HS</th></tr>
+                        {% elif ex[2] == 'Material' %}<tr><th>Pozycja</th><th>Ilość (szt)</th><th>Laga (m)</th><th>kg/m</th><th>Waga (kg)</th></tr>
+                        {% else %}<tr><th>Pozycja</th><th>Sztuki</th></tr>{% endif %}
                         
                         {% for m in item.mats_offers %}
                         <tr>
