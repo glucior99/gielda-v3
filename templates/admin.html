@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>NECKS Portal Admin v5.5</title>
+    <title>NECKS Portal Admin v5.6</title>
     <style>
         :root { --primary: #D32F2F; --nav: #1A237E; --bg: #f4f6f8; --card: #ffffff; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); padding: 20px; color: #333; font-size: 13px; margin: 0; }
@@ -186,9 +186,9 @@
             {% endfor %}
         {% endif %}
         <div style="display:flex; border-bottom:1px solid #ddd;">
-            <a href="/admin?view={{ view }}&ex_cat=Spedycja" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Spedycja' else '#999' }};">Spedycja</a>
-            <a href="/admin?view={{ view }}&ex_cat=Material" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Material' else '#999' }};">Materiał</a>
-            <a href="/admin?view={{ view }}&ex_cat=Wycena" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Wycena' else '#999' }};">Wycena</a>
+            <a href="/admin?view={{ view }}&ex_cat=Spedycja{{ '&folder='+current_folder if view=='archive' else '' }}" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Spedycja' else '#999' }};">Spedycja</a>
+            <a href="/admin?view={{ view }}&ex_cat=Material{{ '&folder='+current_folder if view=='archive' else '' }}" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Material' else '#999' }};">Materiał</a>
+            <a href="/admin?view={{ view }}&ex_cat=Wycena{{ '&folder='+current_folder if view=='archive' else '' }}" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Wycena' else '#999' }};">Wycena</a>
         </div>
         <div class="list-group">
             {% set lista = open_ex if view == 'open' else (closed_ex if view == 'closed' else archive_folders.get(current_folder, [])) %}
@@ -205,7 +205,7 @@
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <h2 style="margin:0; color:var(--nav);">{{ ex[1] }}</h2>
                 <div style="display:flex; gap:5px;">
-                    {% if view == 'open' %}<a href="{{ item.mailto }}" class="btn" style="background:#f39c12;">✉️ Zaproś (Outlook)</a>{% endif %}
+                    {% if view == 'open' %}<a href="{{ item.mailto }}" class="btn" style="background:#f39c12;">✉️ Zaproś</a>{% endif %}
                     {% if view == 'archive' %}<a href="/export_csv/{{ ex[0] }}" class="btn btn-green">📥 Pobierz Raport (Excel)</a>{% endif %}
                     {% if view != 'archive' %}<a href="/toggle_lock/{{ ex[0] }}" class="btn" style="background:#777;">{{ 'Otwórz' if ex[4] else 'Zamknij' }}</a>{% endif %}
                     {% if view == 'closed' %}
@@ -242,7 +242,6 @@
                         {% if ex[2] == 'Spedycja' %}<tr><th>Pozycja</th><th>Netto</th><th>Brutto</th><th>Vol</th><th>HS</th></tr>
                         {% elif ex[2] == 'Material' %}<tr><th>Pozycja</th><th>Ilość (szt)</th><th>Laga (m)</th><th>kg/m</th><th>Waga (kg)</th></tr>
                         {% else %}<tr><th>Pozycja</th><th>Sztuki</th></tr>{% endif %}
-                        
                         {% for m in item.mats_offers %}
                         <tr>
                             <td>{{ m.data[2] }}<input type="hidden" name="m_id" value="{{ m.data[0] }}"></td>
@@ -280,6 +279,7 @@
                     <div style="border-bottom:1px solid #eee; padding:5px;">
                         <strong>{{ m.data[2] }}</strong> 
                         {% if ex[2] == 'Material' %}({{ m.data[6] }} szt * {{ m.data[8] }} m * {{ m.data[7] }} kg/m = <strong>{{ m.data[3] }} kg</strong>){% endif %}
+                        {% if ex[2] == 'Spedycja' %}(Net: {{ m.data[3] }}, Brut: {{ m.data[4] }}, Vol: {{ m.data[5] }}, HS: {{ m.data[9] }}){% endif %}
                         <table style="background:#fafafa;">{% for o in m.offers %}<tr style="{{ 'color:green;' if o.is_best else '' }}"><td>{{ o.user }}</td><td>{{ o.curr }} PLN</td><td>-{{ o.drop }}%</td></tr>{% endfor %}</table>
                     </div>
                 {% endfor %}
