@@ -3,16 +3,26 @@ import statistics
 import requests
 import os
 import urllib.parse
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, session, flash, url_for
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "super_tajny_klucz_kierownika_v5_2"
+app.secret_key = "super_tajny_klucz_kierownika_v5_3"
 DB_NAME = "database.db"
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# --- KONFIGURACJA EMAIL ---
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_EMAIL = "twoj_email@gmail.com" # <--- WPISZ E-MAIL
+SMTP_PASSWORD = "twoje_haslo_aplikacji" # <--- WPISZ HASŁO
+# --------------------------
 
 if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
 
@@ -28,16 +38,14 @@ def safe_float(value):
 
 def init_db():
     con = db(); cur = con.cursor()
-    # Domyślny szablon maila z nowymi zmiennymi
+    
     default_mail = """Dzień dobry,
 
 Zapraszamy do składania ofert w giełdzie: {GIEŁDA}.
 
 Szczegóły:
 Termin składania ofert: {DATA}
-Warunki: {INCOTERMS}
-Port: {PORT}
-Data gotowości: {DATA_ODBIORU}
+{WARUNKI_LOGISTYCZNE}
 
 Link do portalu: http://twoj-adres-serwera:10000
 
@@ -57,6 +65,7 @@ Dział Logistyki"""
         is_archived INTEGER DEFAULT 0, archive_folder TEXT DEFAULT '',
         incoterms TEXT, port_loading TEXT, pickup_date TEXT)""")
     
+    # MATERIALS: Dodano laga_m (długość w metrach)
     cur.execute("""CREATE TABLE IF NOT EXISTS materials (
         id INTEGER PRIMARY KEY AUTOINCREMENT, exchange_id INTEGER, name TEXT, 
         net_weight REAL, gross_weight REAL, volume REAL, quantity INTEGER, 
@@ -90,6 +99,22 @@ def get_setting(key):
     con.close()
     return row[0] if row else ""
 
+def send_smtp_email(to_emails, subject, body):
+    if not to_emails or "twoj_email" in SMTP_EMAIL: return
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        for email in to_emails:
+            msg = MIMEText(body, 'plain', 'utf-8')
+            msg['Subject'] = Header(subject, 'utf-8')
+            msg['From'] = SMTP_EMAIL
+            msg['To'] = SMTP_EMAIL 
+            msg['Bcc'] = email
+            server.sendmail(SMTP_EMAIL, [email], msg.as_string())
+        server.quit()
+    except Exception as e: print(f"SMTP Error: {e}")
+
 def is_exchange_open(ex_id):
     con = db(); cur = con.cursor()
     cur.execute("SELECT deadline, is_locked, is_archived FROM exchanges WHERE id=?", (ex_id,))
@@ -116,7 +141,6 @@ def login():
         cur.execute("SELECT * FROM users WHERE username=?", (u,))
         row = cur.fetchone()
         con.close()
-        
         if row and check_password_hash(row[2], p):
             if row[3] == 0: flash("Konto nieaktywne."); return render_template("login.html")
             session["user"] = u
@@ -134,65 +158,56 @@ def logout(): session.clear(); return redirect("/")
 def user():
     if "user" not in session or session["user"] == "admin": return redirect("/")
     con = db(); cur = con.cursor()
-    cur.execute("SELECT * FROM exchanges WHERE is_archived=0 ORDER BY deadline DESC")
+    # User widzi tylko giełdy swojej kategorii
+    user_cat = session.get("category", "Spedycja")
+    
+    cur.execute("SELECT * FROM exchanges WHERE is_archived=0 AND category=? ORDER BY deadline DESC", (user_cat,))
     all_ex = cur.fetchall()
     exchange_data = []
     
-    user_cat = session.get("category", "Spedycja")
-
     for ex in all_ex:
-        if ex[2] != user_cat: continue
         if not is_exchange_open(ex[0]): continue
 
         cur.execute("SELECT * FROM materials WHERE exchange_id=?", (ex[0],))
         mats_raw = cur.fetchall()
         materials = []
         
-        shipping_bid = None
-        shipping_rank = "-"
+        shipping_bid, shipping_rank = None, "-"
         
         if ex[2] == 'Spedycja':
             cur.execute("SELECT val_pln, val_eur, val_usd, total_usd_calc FROM shipping_bids WHERE exchange_id=? AND user=? ORDER BY id DESC LIMIT 1", (ex[0], session['user']))
             shipping_bid = cur.fetchone()
-            
             if shipping_bid:
                 my_total = shipping_bid[3]
                 cur.execute("SELECT total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id DESC", (ex[0],))
-                all_raw = cur.fetchall()
-                # Unikalne najnowsze oferty per user
+                # Uproszczony ranking (z najnowszych)
                 cur.execute("SELECT user, total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id ASC", (ex[0],))
                 hist = cur.fetchall()
                 latest = {}
                 for u, v in hist: latest[u] = v
-                
                 sorted_vals = sorted(latest.values())
-                try:
-                    rank_pos = sorted_vals.index(my_total) + 1
-                    shipping_rank = rank_pos
+                try: shipping_rank = sorted_vals.index(my_total) + 1
                 except: pass
 
         for m in mats_raw:
             saved_price = None
             item_rank = "-"
-            
             if ex[2] != 'Spedycja':
                 cur.execute("SELECT price, currency, user_file1, user_file2, user_file3, substitute_note FROM prices WHERE material_id=? AND user=? ORDER BY id DESC LIMIT 1", (m[0], session["user"]))
                 saved_price = cur.fetchone()
-                
                 if saved_price:
-                    my_p = saved_price[0]
+                    # Ranking pozycji
                     cur.execute("SELECT user, price FROM prices WHERE material_id=? ORDER BY id ASC", (m[0],))
                     p_hist = cur.fetchall()
                     p_latest = {}
                     for u, p in p_hist: p_latest[u] = p
-                    
                     sorted_p = sorted(p_latest.values())
-                    try: item_rank = sorted_p.index(my_p) + 1
+                    try: item_rank = sorted_p.index(saved_price[0]) + 1
                     except: pass
 
             materials.append({
                 "id": m[0], "name": m[2], "net": m[3], "gross": m[4], "vol": m[5], 
-                "qty": m[6], "hs": m[9], "admin_file": m[10],
+                "qty": m[6], "kg_m": m[7], "len": m[8], "hs": m[9], "admin_file": m[10],
                 "saved": saved_price, "rank": item_rank
             })
         
@@ -215,8 +230,7 @@ def save_offer(eid):
     row = cur.fetchone()
     cat, rate_e, rate_u = row[0], row[1], row[2]
 
-    if not is_exchange_open(eid): 
-        con.close(); return "Zamknięte", 403
+    if not is_exchange_open(eid): con.close(); return "Zamknięte", 403
 
     if cat == 'Spedycja':
         pln = safe_float(request.form.get("sp_pln"))
@@ -236,11 +250,35 @@ def save_offer(eid):
                 sub_note = request.form.get(f"sub_note_{mid}", "")
                 cur.execute("INSERT INTO prices (user, material_id, price, currency, substitute_note) VALUES (?,?,?,?,?)", 
                            (session['user'], mid, val, "PLN", sub_note))
-    
     con.commit(); con.close()
     return redirect("/user")
 
 # --- ADMIN ROUTES ---
+
+@app.route("/send_invites/<int:eid>")
+def send_invites(eid):
+    if session.get("user") != "admin": return redirect("/")
+    con = db(); cur = con.cursor()
+    cur.execute("SELECT name, category, deadline, incoterms, port_loading, pickup_date FROM exchanges WHERE id=?", (eid,))
+    ex = cur.fetchone()
+    cur.execute("SELECT username FROM users WHERE category=? AND is_active=1", (ex[1],))
+    users = [u[0] for u in cur.fetchall()]
+    con.close()
+    
+    if users:
+        template = get_setting('mail_template')
+        body = template.replace('{GIEŁDA}', ex[0]).replace('{DATA}', ex[2].replace('T', ' '))
+        
+        # Warunki logistyczne tylko dla Spedycji
+        logistics_info = ""
+        if ex[1] == 'Spedycja':
+            logistics_info = f"Warunki: {ex[3] or '-'}\nPort: {ex[4] or '-'}\nData gotowości: {ex[5] or '-'}"
+        
+        body = body.replace('{WARUNKI_LOGISTYCZNE}', logistics_info)
+        
+        send_smtp_email(users, f"Zaproszenie: {ex[0]}", body)
+        flash(f"Wysłano do {len(users)} osób.")
+    return redirect(request.referrer)
 
 @app.route("/manage_user", methods=["POST"])
 def manage_user():
@@ -251,7 +289,6 @@ def manage_user():
     if action == "add":
         try:
             pw = generate_password_hash(request.form["password"])
-            # Domyślnie is_active=1
             cur.execute("INSERT INTO users (username, password, is_active, category) VALUES (?,?,?,?)", 
                        (request.form["username"], pw, 1, request.form["category"]))
         except: pass
@@ -287,9 +324,9 @@ def admin():
     view = request.args.get('view', 'dashboard') 
     archive_folder = request.args.get('folder', 'Styczeń')
     user_cat_tab = request.args.get('user_cat', 'Spedycja')
-    status_tab = request.args.get('status_tab', 'active') # Do zakładek userów (active/inactive)
+    status_tab = request.args.get('status_tab', 'active')
+    ex_cat_tab = request.args.get('ex_cat', 'Spedycja') # Nowa zakładka dla giełd
 
-    # --- OBSŁUGA FORMULARZY ---
     if request.method == "POST":
         form_type = request.form.get("form_type")
         
@@ -307,20 +344,30 @@ def admin():
             u_r = safe_float(request.form.get("usd_rate", "4.00"))
             notify = 1 if request.form.get("notify_enabled") else 0
             
+            # Jeśli nie Spedycja, pola logistyczne są puste
+            inco = request.form.get("incoterms") if cat == 'Spedycja' else ""
+            port = request.form.get("port_loading") if cat == 'Spedycja' else ""
+            pick = request.form.get("pickup_date") if cat == 'Spedycja' else ""
+
             cur.execute("""INSERT INTO exchanges (name, category, deadline, currency, eur_rate, usd_rate, admin_file1, admin_file2, description, notify_enabled, incoterms, port_loading, pickup_date) 
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", 
-                       (request.form["exchange_name"], cat, request.form["deadline"], "PLN", e_r, u_r, af_names[0], af_names[1], request.form.get("desc",""), notify,
-                        request.form.get("incoterms"), request.form.get("port_loading"), request.form.get("pickup_date")))
+                       (request.form["exchange_name"], cat, request.form["deadline"], "PLN", e_r, u_r, af_names[0], af_names[1], request.form.get("desc",""), notify, inco, port, pick))
             con.commit()
-            return redirect("/admin?view=open")
+            return redirect(f"/admin?view=open&ex_cat={cat}")
 
         elif form_type == "add_item":
             eid = request.form["exchange_id"]
-            qty = safe_float(request.form.get("qty"))
-            kg_m = safe_float(request.form.get("kg_m"))
-            length = safe_float(request.form.get("len"))
-            net_w = safe_float(request.form.get("net"))
-            if qty>0 and kg_m>0 and length>0: net_w = round(qty*length*kg_m, 2)
+            
+            # Logika Materiałowa (Automatyczna waga)
+            qty = safe_float(request.form.get("qty")) # szt
+            kg_m = safe_float(request.form.get("kg_m")) # kg/m
+            length = safe_float(request.form.get("len")) # m
+            
+            net_w = safe_float(request.form.get("net")) # Spedycja wpisuje ręcznie
+            
+            # Automat dla Materiału: kg = szt * m * kg/m
+            if kg_m > 0 and length > 0 and qty > 0:
+                net_w = round(qty * length * kg_m, 2)
             
             item_file = ""
             if "item_file" in request.files:
@@ -337,12 +384,9 @@ def admin():
 
         elif form_type == "edit_exchange_details":
             eid = request.form["eid"]
-            desc = request.form.get("desc")
-            inco = request.form.get("incoterms")
-            port = request.form.get("port")
-            pick = request.form.get("pickup")
-            
-            cur.execute("UPDATE exchanges SET description=?, incoterms=?, port_loading=?, pickup_date=? WHERE id=?", (desc, inco, port, pick, eid))
+            # Edycja
+            cur.execute("UPDATE exchanges SET description=?, incoterms=?, port_loading=?, pickup_date=? WHERE id=?", 
+                       (request.form.get("desc"), request.form.get("incoterms"), request.form.get("port"), request.form.get("pickup"), eid))
             
             m_ids = request.form.getlist("m_id")
             for mid in m_ids:
@@ -356,7 +400,23 @@ def admin():
             return redirect(f"/admin?view={view}&exchange_id={eid}")
 
         elif form_type == "archive_exchange":
-            cur.execute("UPDATE exchanges SET is_archived=1, archive_folder=? WHERE id=?", (request.form["folder_name"], request.form["eid"]))
+            eid = request.form["eid"]
+            # SPRAWDZANIE CZY WSZYSTKIE POZYCJE MAJĄ KOD 18 ZNAKÓW
+            cur.execute("SELECT customs_code_18 FROM materials WHERE exchange_id=?", (eid,))
+            codes = [c[0] for c in cur.fetchall()]
+            
+            # Walidacja: Czy każdy kod ma dokładnie 18 znaków?
+            missing = False
+            for code in codes:
+                if not code or len(code.strip()) != 18:
+                    missing = True
+                    break
+            
+            if missing:
+                flash("BŁĄD: Nie można zarchiwizować! Wszystkie pozycje muszą mieć 18-znakowy kod odprawy.")
+                return redirect(f"/admin?view={view}&exchange_id={eid}")
+            
+            cur.execute("UPDATE exchanges SET is_archived=1, archive_folder=? WHERE id=?", (request.form["folder_name"], eid))
             con.commit(); return redirect("/admin?view=archive")
 
         elif form_type == "delete_exchange":
@@ -366,7 +426,7 @@ def admin():
             cur.execute("DELETE FROM shipping_bids WHERE exchange_id=?", (eid,))
             con.commit(); return redirect(f"/admin?view={view}")
 
-    # --- POBIERANIE DANYCH ---
+    # --- DANE ---
     cur.execute("SELECT id, username, is_active, category FROM users WHERE username != 'admin' ORDER BY username")
     all_users_list = cur.fetchall()
 
@@ -383,7 +443,11 @@ def admin():
         if f_name not in archive_folders: archive_folders[f_name] = []
         archive_folders[f_name].append(e)
     
-    target_list = open_ex if view == 'open' else (closed_ex if view == 'closed' else archive_folders.get(archive_folder, []))
+    # Wybór listy i filtrowanie po kategorii giełdy
+    raw_list = open_ex if view == 'open' else (closed_ex if view == 'closed' else archive_folders.get(archive_folder, []))
+    # Jeśli jesteśmy w widoku giełd (open/closed/archive), filtrujemy po zakładce kategorii
+    target_list = [e for e in raw_list if e[2] == ex_cat_tab] if view in ['open', 'closed', 'archive'] else raw_list
+    
     process_ex = [e for e in target_list if e[0] == sel_id] if sel_id else []
 
     ex_details = []
@@ -392,21 +456,6 @@ def admin():
         cur.execute("SELECT * FROM materials WHERE exchange_id=?", (ex[0],))
         mats_raw = cur.fetchall()
         
-        # --- GENEROWANIE LINKU MAILTO (Outlook) ---
-        cur.execute("SELECT username FROM users WHERE category=? AND is_active=1", (cat,))
-        emails = [u[0] for u in cur.fetchall()] # Zakładamy że login to email
-        email_str = ";".join(emails) # Średnik dla Outlooka
-        
-        template = get_setting("mail_template")
-        deadline_str = ex[3].replace("T", " ")
-        # Podmiana zmiennych
-        body = template.replace("{GIEŁDA}", ex[1]).replace("{DATA}", deadline_str)
-        body = body.replace("{INCOTERMS}", ex[14] or "").replace("{PORT}", ex[15] or "").replace("{DATA_ODBIORU}", ex[16] or "")
-        
-        subject = f"Zaproszenie do giełdy: {ex[1]}"
-        mailto_link = f"mailto:?bcc={email_str}&subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
-        # ------------------------------------------
-
         shipping_stats = []
         if cat == 'Spedycja':
             cur.execute("SELECT user, val_pln, val_eur, val_usd, total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id ASC", (ex[0],))
@@ -415,14 +464,11 @@ def admin():
             for r in rows:
                 if r[0] not in u_hist: u_hist[r[0]] = []
                 u_hist[r[0]].append(r)
-            
             for u, h in u_hist.items():
                 start = h[0][4]
                 curr = h[-1][4]
                 drop = round((start - curr)/start*100, 1) if start>0 else 0
-                shipping_stats.append({
-                    'user': u, 'desc': f"USD:{h[-1][3]}", 'start': start, 'curr': curr, 'drop': drop
-                })
+                shipping_stats.append({'user': u, 'desc': f"USD:{h[-1][3]}", 'start': start, 'curr': curr, 'drop': drop})
             shipping_stats.sort(key=lambda x: x['curr'])
             if shipping_stats:
                 min_v = shipping_stats[0]['curr']
@@ -439,7 +485,6 @@ def admin():
             for r in p_hist:
                 if r[0] not in u_hist: u_hist[r[0]] = []
                 u_hist[r[0]].append(r)
-            
             offers = []
             for u, h in u_hist.items():
                 start = h[0][1]
@@ -453,10 +498,9 @@ def admin():
                 for o in offers:
                     o['is_best'] = (o['curr'] == min_p)
                     o['label'] = "REMIS" if (o['is_best'] and remis) else ("L1" if o['is_best'] else "")
-            
             mats_with_offers.append({'data': m, 'offers': offers})
 
-        ex_details.append({'info': ex, 'mats_offers': mats_with_offers, 'shipping_stats': shipping_stats, 'mailto': mailto_link})
+        ex_details.append({'info': ex, 'mats_offers': mats_with_offers, 'shipping_stats': shipping_stats})
 
     email_template = get_setting("mail_template")
     l_eur, l_usd = get_live_rate('EUR'), get_live_rate('USD')
@@ -467,7 +511,7 @@ def admin():
                          open_ex=open_ex, closed_ex=closed_ex, archive_folders=archive_folders,
                          sel_id=sel_id, view=view, current_folder=archive_folder,
                          live_eur=l_eur, live_usd=l_usd, email_template=email_template,
-                         user_cat_tab=user_cat_tab, status_tab=status_tab)
+                         user_cat_tab=user_cat_tab, status_tab=status_tab, ex_cat_tab=ex_cat_tab)
 
 @app.route("/toggle_lock/<int:eid>")
 def toggle_lock(eid):
