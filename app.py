@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "super_tajny_klucz_kierownika_v5_5_export"
+app.secret_key = "super_tajny_klucz_kierownika_v5_6_final_fix"
 DB_NAME = "database.db"
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -59,7 +59,6 @@ Dział Logistyki"""
 
     cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, is_active INTEGER DEFAULT 1, category TEXT DEFAULT 'Spedycja')")
     
-    # EXCHANGES: Dodano delivery_date
     cur.execute("""CREATE TABLE IF NOT EXISTS exchanges (
         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, category TEXT, deadline DATETIME, 
         is_locked INTEGER DEFAULT 0, currency TEXT DEFAULT 'PLN', eur_rate REAL DEFAULT 1.0, 
@@ -126,29 +125,35 @@ def export_csv(eid):
     
     con = db(); cur = con.cursor()
     cur.execute("SELECT * FROM exchanges WHERE id=?", (eid,))
-    ex = cur.fetchone() # 0:id, 1:name, 2:cat, ... 17:customs, 18:delivery
+    ex = cur.fetchone() 
     
     if not ex: return "Brak danych"
 
-    # Przygotowanie bufora CSV
     si = io.StringIO()
-    writer = csv.writer(si, delimiter=';', quoting=csv.QUOTE_MINIMAL) # Średnik dla Excela w PL
+    writer = csv.writer(si, delimiter=';', quoting=csv.QUOTE_MINIMAL)
     
-    # NAGŁÓWEK GIEŁDY
     writer.writerow(["RAPORT GIEŁDY", ex[1]])
     writer.writerow(["Kategoria", ex[2]])
     writer.writerow(["Termin", ex[3]])
     
     if ex[2] == 'Spedycja':
         writer.writerow(["Kod Odprawy Celnej", ex[17] or "Brak"])
-    else:
-        writer.writerow(["Data Dostawy", ex[18] or "Brak"])
+        writer.writerow(["Incoterms", ex[14] or "-"])
+        writer.writerow(["Port", ex[15] or "-"])
+        writer.writerow([])
         
-    writer.writerow([]) # Pusta linia
-
-    # DANE SZCZEGÓŁOWE
-    if ex[2] == 'Spedycja':
-        writer.writerow(["RANKING SPEDYCJI"])
+        # 1. LISTA TOWARÓW (Dla Spedycji)
+        writer.writerow(["SPECYFIKACJA TOWARU"])
+        writer.writerow(["Nazwa", "Waga Netto", "Waga Brutto", "Objętość", "Kod HS"])
+        cur.execute("SELECT name, net_weight, gross_weight, volume, hs_code FROM materials WHERE exchange_id=?", (eid,))
+        mats = cur.fetchall()
+        for m in mats:
+            writer.writerow([m[0], m[1], m[2], m[3], m[4]])
+        
+        writer.writerow([])
+        
+        # 2. RANKING FINANSOWY
+        writer.writerow(["RANKING DOSTAWCÓW (SPEDYCJA)"])
         writer.writerow(["Dostawca", "Start (USD)", "Koniec (USD)", "Zejście %", "Szczegóły Walutowe"])
         
         cur.execute("SELECT user, val_pln, val_eur, val_usd, total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id ASC", (eid,))
@@ -158,7 +163,6 @@ def export_csv(eid):
             if r[0] not in u_hist: u_hist[r[0]] = []
             u_hist[r[0]].append(r)
         
-        # Sortujemy po najniższej cenie końcowej
         sorted_users = sorted(u_hist.items(), key=lambda item: item[1][-1][4])
 
         for u, history in sorted_users:
@@ -171,12 +175,13 @@ def export_csv(eid):
 
     else:
         # MATERIAŁ / WYCENA
+        writer.writerow(["Data Dostawy", ex[18] or "Brak"])
+        writer.writerow([])
         writer.writerow(["LISTA POZYCJI I OFERTY"])
         cur.execute("SELECT * FROM materials WHERE exchange_id=?", (eid,))
         mats = cur.fetchall()
         
         for m in mats:
-            # m: 2:name, 6:qty, 8:len, 7:kg/m, 3:net_weight
             param_str = f"{m[6]}szt x {m[8]}m ({m[7]}kg/m)" if ex[2]=='Material' else f"{m[6]} szt"
             weight_str = f"{m[3]} kg" if ex[2]=='Material' else "-"
             
@@ -191,7 +196,6 @@ def export_csv(eid):
                 if r[0] not in u_hist: u_hist[r[0]] = []
                 u_hist[r[0]].append(r)
             
-            # Sortujemy po cenie końcowej
             sorted_offers = sorted(u_hist.items(), key=lambda item: item[1][-1][1])
             
             for u, history in sorted_offers:
@@ -203,8 +207,7 @@ def export_csv(eid):
 
     con.close()
     
-    # Generowanie pliku do pobrania
-    output = make_response(si.getvalue().encode('utf-8-sig')) # BOM dla polskich znaków
+    output = make_response(si.getvalue().encode('utf-8-sig'))
     output.headers["Content-Disposition"] = f"attachment; filename=Raport_{eid}_{secure_filename(ex[1])}.csv"
     output.headers["Content-type"] = "text/csv"
     return output
@@ -256,6 +259,7 @@ def user():
             shipping_bid = cur.fetchone()
             if shipping_bid:
                 my_total = shipping_bid[3]
+                cur.execute("SELECT total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id DESC", (ex[0],))
                 cur.execute("SELECT user, total_usd_calc FROM shipping_bids WHERE exchange_id=? ORDER BY id ASC", (ex[0],))
                 hist = cur.fetchall()
                 latest = {}
@@ -331,7 +335,7 @@ def save_offer(eid):
 
 @app.route("/send_invites/<int:eid>")
 def send_invites(eid):
-    # Generuje mailto
+    # Outlook handled in template
     return redirect(request.referrer)
 
 @app.route("/manage_user", methods=["POST"])
@@ -432,7 +436,6 @@ def admin():
             eid = request.form["eid"]
             cat_redirect = request.form.get("category_redirect")
             
-            # Zapisz globalne dane (kod celny / data dostawy)
             cur.execute("UPDATE exchanges SET description=?, incoterms=?, port_loading=?, pickup_date=?, customs_code_global=?, delivery_date=? WHERE id=?", 
                        (request.form.get("desc"), request.form.get("incoterms"), request.form.get("port"), request.form.get("pickup"), request.form.get("customs_code_global"), request.form.get("delivery_date"), eid))
             
@@ -461,7 +464,6 @@ def admin():
             eid = request.form["eid"]
             cat = request.form.get("category_redirect")
             
-            # WALIDACJA ARCHIWIZACJI
             cur.execute("SELECT customs_code_global, delivery_date FROM exchanges WHERE id=?", (eid,))
             row = cur.fetchone()
             code, d_date = row[0], row[1]
@@ -470,7 +472,7 @@ def admin():
                 if not code or len(code.strip()) != 18:
                     flash("BŁĄD: Spedycja wymaga 18-znakowego Kodu Odprawy Celnej.")
                     return redirect(f"/admin?view={view}&exchange_id={eid}&ex_cat={cat}")
-            else: # Materiał / Wycena
+            else:
                 if not d_date:
                     flash("BŁĄD: Wymagana jest Data Dostawy do archiwizacji.")
                     return redirect(f"/admin?view={view}&exchange_id={eid}&ex_cat={cat}")
@@ -512,11 +514,10 @@ def admin():
         cur.execute("SELECT * FROM materials WHERE exchange_id=?", (ex[0],))
         mats_raw = cur.fetchall()
         
-        # --- MAILTO GENERATION ---
+        # --- MAILTO ---
         cur.execute("SELECT username FROM users WHERE category=? AND is_active=1", (cat,))
         emails = [u[0] for u in cur.fetchall()]
         email_str = ";".join(emails)
-        
         template = get_setting("mail_template")
         deadline_str = ex[3].replace("T", " ")
         body = template.replace("{GIEŁDA}", ex[1]).replace("{DATA}", deadline_str)
@@ -526,7 +527,6 @@ def admin():
         body = body.replace("{WARUNKI_LOGISTYCZNE}", logistics)
         subject = f"Zaproszenie do giełdy: {ex[1]}"
         mailto_link = f"mailto:?bcc={email_str}&subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
-        # -------------------------
 
         shipping_stats = []
         if cat == 'Spedycja':
