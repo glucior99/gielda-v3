@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>NECKS Portal Admin v5.3</title>
+    <title>NECKS Portal Admin v5.4</title>
     <style>
         :root { --primary: #D32F2F; --nav: #1A237E; --bg: #f4f6f8; --card: #ffffff; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); padding: 20px; color: #333; font-size: 13px; margin: 0; }
@@ -20,6 +20,7 @@
         input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         .btn { padding: 8px 15px; background: var(--nav); color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 12px; }
         .btn-danger { background: var(--primary); }
+        .btn-sm { padding: 4px 8px; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         th { text-align: left; padding: 10px; background: #eee; }
         td { padding: 10px; border-bottom: 1px solid #eee; }
@@ -139,45 +140,35 @@
 
 {% if view == 'users' %}
 <div class="card">
-    <div style="margin-bottom:15px;">
-        <a href="/admin?view=users&user_cat=Spedycja" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Spedycja' else '#ccc' }}">Spedycja</a>
-        <a href="/admin?view=users&user_cat=Material" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Material' else '#ccc' }}">Materiał</a>
-        <a href="/admin?view=users&user_cat=Wycena" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Wycena' else '#ccc' }}">Wycena</a>
+    <div style="margin-bottom:15px; display:flex; justify-content:space-between;">
+        <div>
+            <a href="/admin?view=users&user_cat=Spedycja" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Spedycja' else '#ccc' }}">Spedycja</a>
+            <a href="/admin?view=users&user_cat=Material" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Material' else '#ccc' }}">Materiał</a>
+            <a href="/admin?view=users&user_cat=Wycena" class="btn" style="background:{{ 'var(--nav)' if user_cat_tab=='Wycena' else '#ccc' }}">Wycena</a>
+        </div>
     </div>
-    
     <div style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
         <a href="/admin?view=users&user_cat={{ user_cat_tab }}&status_tab=active" class="status-tab {{ 'active' if status_tab == 'active' }}">🟢 AKTYWNI</a>
         <a href="/admin?view=users&user_cat={{ user_cat_tab }}&status_tab=inactive" class="status-tab {{ 'active' if status_tab == 'inactive' }}">🔴 NIEAKTYWNI</a>
     </div>
-    
     {% if status_tab == 'active' %}
     <form action="/manage_user" method="post" style="background:#e8f5e9; padding:10px; margin-bottom:15px;">
-        <input type="hidden" name="action" value="add">
-        <input type="hidden" name="category" value="{{ user_cat_tab }}">
-        <input type="hidden" name="category_filter" value="{{ user_cat_tab }}">
-        <input type="hidden" name="status_tab" value="{{ status_tab }}">
+        <input type="hidden" name="action" value="add"><input type="hidden" name="category" value="{{ user_cat_tab }}"><input type="hidden" name="category_filter" value="{{ user_cat_tab }}"><input type="hidden" name="status_tab" value="{{ status_tab }}">
         <input type="text" name="username" placeholder="Email/Login" required style="width:200px;">
         <input type="text" name="password" placeholder="Hasło" required style="width:200px;">
         <button class="btn">Dodaj Usera</button>
     </form>
     {% endif %}
-
     <table>
         <tr><th>User</th><th>Hasło</th><th>Akcja</th></tr>
         {% set show_active = 1 if status_tab == 'active' else 0 %}
         {% for u in all_users_list if u[3] == user_cat_tab and u[2] == show_active %}
         <tr>
             <form action="/manage_user" method="post">
-                <input type="hidden" name="uid" value="{{ u[0] }}">
-                <input type="hidden" name="category_filter" value="{{ user_cat_tab }}">
-                <input type="hidden" name="status_tab" value="{{ status_tab }}">
+                <input type="hidden" name="uid" value="{{ u[0] }}"><input type="hidden" name="category_filter" value="{{ user_cat_tab }}"><input type="hidden" name="status_tab" value="{{ status_tab }}">
                 <td><input type="text" name="username" value="{{ u[1] }}"></td>
                 <td><input type="text" name="password" placeholder="Zmień hasło"></td>
-                <td>
-                    <button name="action" value="edit" class="btn btn-sm">Zapisz</button>
-                    <button name="action" value="toggle" class="btn btn-sm" style="background:{{ '#7f8c8d' if u[2] else '#2e7d32' }};">{{ 'Wyłącz' if u[2] else 'Włącz' }}</button>
-                    <button name="action" value="delete" class="btn btn-sm btn-danger">X</button>
-                </td>
+                <td><button name="action" value="edit" class="btn btn-sm">Zapisz</button><button name="action" value="toggle" class="btn btn-sm" style="background:{{ '#7f8c8d' if u[2] else '#2e7d32' }};">{{ 'Wyłącz' if u[2] else 'Włącz' }}</button><button name="action" value="delete" class="btn btn-sm btn-danger">X</button></td>
             </form>
         </tr>
         {% endfor %}
@@ -193,19 +184,15 @@
                 <a href="/admin?view=archive&folder={{ f }}" style="display:block; padding:10px; border-bottom:1px solid #eee;">📂 {{ f }}</a>
             {% endfor %}
         {% endif %}
-        
         <div style="display:flex; border-bottom:1px solid #ddd;">
             <a href="/admin?view={{ view }}&ex_cat=Spedycja" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Spedycja' else '#999' }};">Spedycja</a>
             <a href="/admin?view={{ view }}&ex_cat=Material" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Material' else '#999' }};">Materiał</a>
             <a href="/admin?view={{ view }}&ex_cat=Wycena" style="flex:1; text-align:center; padding:5px; font-weight:bold; color:{{ 'var(--nav)' if ex_cat_tab=='Wycena' else '#999' }};">Wycena</a>
         </div>
-
         <div class="list-group">
             {% set lista = open_ex if view == 'open' else (closed_ex if view == 'closed' else archive_folders.get(current_folder, [])) %}
             {% for ex in lista if ex[2] == ex_cat_tab %}
-                <a href="/admin?view={{ view }}&ex_cat={{ ex_cat_tab }}&exchange_id={{ ex[0] }}{{ '&folder='+current_folder if view=='archive' else '' }}" class="{{ 'active' if sel_id == ex[0] }}">
-                    {{ ex[1] }} <br><small>{{ ex[2] }}</small>
-                </a>
+                <a href="/admin?view={{ view }}&ex_cat={{ ex_cat_tab }}&exchange_id={{ ex[0] }}{{ '&folder='+current_folder if view=='archive' else '' }}" class="{{ 'active' if sel_id == ex[0] }}">{{ ex[1] }} <br><small>{{ ex[2] }}</small></a>
             {% endfor %}
         </div>
     </div>
@@ -217,15 +204,12 @@
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <h2 style="margin:0; color:var(--nav);">{{ ex[1] }}</h2>
                 <div style="display:flex; gap:5px;">
-                    <a href="/send_invites/{{ ex[0] }}" class="btn" style="background:#f39c12;">✉️ Zaproś</a>
-                    
-                    {% if view != 'archive' %}
-                        <a href="/toggle_lock/{{ ex[0] }}" class="btn" style="background:#777;">{{ 'Otwórz' if ex[4] else 'Zamknij' }}</a>
-                    {% endif %}
+                    <a href="{{ item.mailto }}" class="btn" style="background:#f39c12;">✉️ Zaproś</a>
+                    {% if view != 'archive' %}<a href="/toggle_lock/{{ ex[0] }}" class="btn" style="background:#777;">{{ 'Otwórz' if ex[4] else 'Zamknij' }}</a>{% endif %}
                     {% if view == 'closed' %}
-                        <form method="post" style="display:inline;"><input type="hidden" name="form_type" value="archive_exchange"><input type="hidden" name="eid" value="{{ ex[0] }}"><input type="text" name="folder_name" placeholder="Folder" style="width:80px; padding:6px;"><button class="btn">Archiwum</button></form>
+                        <form method="post" style="display:inline;"><input type="hidden" name="form_type" value="archive_exchange"><input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}"><input type="hidden" name="eid" value="{{ ex[0] }}"><input type="text" name="folder_name" placeholder="Folder" style="width:80px; padding:6px;"><button class="btn">Archiwum</button></form>
                     {% endif %}
-                    <form method="post" style="display:inline;"><input type="hidden" name="form_type" value="delete_exchange"><input type="hidden" name="eid" value="{{ ex[0] }}"><button class="btn btn-danger">X</button></form>
+                    <form method="post" style="display:inline;"><input type="hidden" name="form_type" value="delete_exchange"><input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}"><input type="hidden" name="eid" value="{{ ex[0] }}"><button class="btn btn-danger">X</button></form>
                 </div>
             </div>
 
@@ -234,6 +218,7 @@
                 <form method="post">
                     <input type="hidden" name="form_type" value="edit_exchange_details">
                     <input type="hidden" name="eid" value="{{ ex[0] }}">
+                    <input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}">
                     
                     {% if ex[2] == 'Spedycja' %}
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -245,16 +230,38 @@
                     
                     <div class="form-group"><label class="form-label">Opis</label><textarea name="desc" rows="1">{{ ex[10] }}</textarea></div>
                     
+                    {% if view == 'closed' %}
+                    <div class="form-group" style="background:#fff9c4; padding:5px; border:1px solid #fbc02d;">
+                        <label class="form-label">Kod Odprawy Celnej (Globalny - 18 znaków, wymagany do archiwizacji)</label>
+                        <input type="text" name="customs_code_global" value="{{ ex[17] if ex[17] else '' }}" maxlength="18" placeholder="Wpisz 18-znakowy kod">
+                    </div>
+                    {% endif %}
+
                     <table>
-                        <tr><th>Pozycja</th><th>Netto</th><th>Brutto</th><th>Vol</th><th>Kod Celny (18)</th><th>HS</th></tr>
+                        {% if ex[2] == 'Spedycja' %}
+                            <tr><th>Pozycja</th><th>Netto</th><th>Brutto</th><th>Vol</th><th>HS</th></tr>
+                        {% elif ex[2] == 'Material' %}
+                            <tr><th>Pozycja</th><th>Ilość (szt)</th><th>Laga (m)</th><th>kg/m</th><th>Waga Total (kg)</th></tr>
+                        {% else %}
+                            <tr><th>Pozycja</th><th>Sztuki</th></tr>
+                        {% endif %}
+                        
                         {% for m in item.mats_offers %}
                         <tr>
                             <td>{{ m.data[2] }}<input type="hidden" name="m_id" value="{{ m.data[0] }}"></td>
-                            <td><input type="text" name="net_{{ m.data[0] }}" value="{{ m.data[3] }}" style="width:60px;"></td>
-                            <td><input type="text" name="gross_{{ m.data[0] }}" value="{{ m.data[4] }}" style="width:60px;"></td>
-                            <td><input type="text" name="vol_{{ m.data[0] }}" value="{{ m.data[5] }}" style="width:60px;"></td>
-                            <td><input type="text" name="code18_{{ m.data[0] }}" value="{{ m.data[11] if m.data[11] else '' }}"></td>
-                            <td><input type="text" name="hs_{{ m.data[0] }}" value="{{ m.data[9] }}" style="width:60px;"></td>
+                            {% if ex[2] == 'Spedycja' %}
+                                <td><input type="text" name="net_{{ m.data[0] }}" value="{{ m.data[3] }}" style="width:60px;"></td>
+                                <td><input type="text" name="gross_{{ m.data[0] }}" value="{{ m.data[4] }}" style="width:60px;"></td>
+                                <td><input type="text" name="vol_{{ m.data[0] }}" value="{{ m.data[5] }}" style="width:60px;"></td>
+                                <td><input type="text" name="hs_{{ m.data[0] }}" value="{{ m.data[9] }}" style="width:60px;"></td>
+                            {% elif ex[2] == 'Material' %}
+                                <td><input type="text" name="qty_{{ m.data[0] }}" value="{{ m.data[6] }}" style="width:50px;"></td>
+                                <td><input type="text" name="len_{{ m.data[0] }}" value="{{ m.data[8] }}" style="width:50px;"></td>
+                                <td><input type="text" name="kgm_{{ m.data[0] }}" value="{{ m.data[7] }}" style="width:50px;"></td>
+                                <td><strong>{{ m.data[3] }}</strong></td>
+                            {% else %}
+                                <td><input type="text" name="qty_{{ m.data[0] }}" value="{{ m.data[6] }}"></td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </table>
@@ -263,32 +270,6 @@
             </div>
             {% endif %}
 
-            {% if view == 'open' %}
-                <form method="post" enctype="multipart/form-data" style="margin-top:10px; background:#eee; padding:10px;">
-                    <input type="hidden" name="form_type" value="add_item"><input type="hidden" name="exchange_id" value="{{ ex[0] }}">
-                    <div style="display:flex; gap:5px; align-items:end;">
-                        <div style="flex:1;"><label class="form-label">Nazwa</label><input type="text" name="name" required></div>
-                        
-                        {% if ex[2] == 'Spedycja' %}
-                            <div style="width:70px;"><label class="form-label">Netto</label><input type="text" name="net"></div>
-                            <div style="width:70px;"><label class="form-label">Brutto</label><input type="text" name="gross"></div>
-                            <div style="width:70px;"><label class="form-label">Vol</label><input type="text" name="vol"></div>
-                            <div style="width:70px;"><label class="form-label">HS</label><input type="text" name="hs"></div>
-                        {% elif ex[2] == 'Material' %}
-                            <div style="width:60px;"><label class="form-label">Sztuki</label><input type="text" name="qty"></div>
-                            <div style="width:60px;"><label class="form-label">Laga (m)</label><input type="text" name="len"></div>
-                            <div style="width:60px;"><label class="form-label">kg/m</label><input type="text" name="kg_m"></div>
-                            <div style="width:60px;"><label class="form-label">HS</label><input type="text" name="hs"></div>
-                        {% else %}
-                            <div style="width:60px;"><label class="form-label">Ilość</label><input type="text" name="qty"></div>
-                            <div><label class="form-label">PDF</label><input type="file" name="item_file"></div>
-                        {% endif %}
-                        
-                        <button class="btn">+</button>
-                    </div>
-                </form>
-            {% endif %}
-            
             {% if ex[2] == 'Spedycja' %}
                 <h4>Ranking (USD)</h4>
                 <table><tr><th>Dostawca</th><th>Oferta</th><th>USD</th><th>Zejście</th></tr>
@@ -305,6 +286,29 @@
                         <table style="background:#fafafa;">{% for o in m.offers %}<tr style="{{ 'color:green;' if o.is_best else '' }}"><td>{{ o.user }}</td><td>{{ o.curr }} PLN</td><td>-{{ o.drop }}%</td></tr>{% endfor %}</table>
                     </div>
                 {% endfor %}
+            {% endif %}
+
+            {% if view == 'open' %}
+                <form method="post" enctype="multipart/form-data" style="margin-top:10px; background:#eee; padding:10px;">
+                    <input type="hidden" name="form_type" value="add_item"><input type="hidden" name="exchange_id" value="{{ ex[0] }}"><input type="hidden" name="category_redirect" value="{{ ex_cat_tab }}">
+                    <div style="display:flex; gap:5px; align-items:end;">
+                        <div style="flex:1;"><label class="form-label">Nazwa</label><input type="text" name="name" required></div>
+                        {% if ex[2] == 'Spedycja' %}
+                            <div style="width:70px;"><label class="form-label">Netto</label><input type="text" name="net"></div>
+                            <div style="width:70px;"><label class="form-label">Brutto</label><input type="text" name="gross"></div>
+                            <div style="width:70px;"><label class="form-label">Vol</label><input type="text" name="vol"></div>
+                            <div style="width:70px;"><label class="form-label">HS</label><input type="text" name="hs"></div>
+                        {% elif ex[2] == 'Material' %}
+                            <div style="width:60px;"><label class="form-label">Ilość</label><input type="text" name="qty"></div>
+                            <div style="width:60px;"><label class="form-label">Laga (m)</label><input type="text" name="len"></div>
+                            <div style="width:60px;"><label class="form-label">kg/m</label><input type="text" name="kg_m"></div>
+                        {% else %}
+                            <div style="width:60px;"><label class="form-label">Ilość</label><input type="text" name="qty"></div>
+                            <div><label class="form-label">PDF</label><input type="file" name="item_file"></div>
+                        {% endif %}
+                        <button class="btn">+</button>
+                    </div>
+                </form>
             {% endif %}
         </div>
     {% endfor %}
