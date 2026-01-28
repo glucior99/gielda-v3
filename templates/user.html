@@ -2,172 +2,123 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Portal Aukcyjny - Dostawca</title>
+    <title>Dostawca</title>
     <style>
         :root { --primary: #D32F2F; --nav: #1A237E; }
         body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #333; }
-        
-        .header { background: white; padding: 15px 30px; border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: 900; color: var(--primary); }
-        .logo span { color: var(--nav); }
-        
-        .container { max-width: 1200px; margin: 0 auto; }
-        
-        .auction-card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 30px; }
-        .auction-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
-        .auction-title { font-size: 22px; color: #333; font-weight: 600; margin: 0; }
-        .status-badge { background: #2e7d32; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-        
-        /* Grid Layout jak na screenie */
+        .header { background: white; padding: 15px 30px; border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .auction-grid { display: grid; grid-template-columns: 1fr 1fr 300px; gap: 40px; }
-        
-        .section-title { font-size: 16px; font-weight: bold; color: var(--nav); margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 5px; display: inline-block; }
-        
-        .detail-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .section-title { font-weight: bold; color: var(--nav); border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 15px; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .detail-label { font-weight: bold; color: #555; }
-        
-        .timer-box { text-align: center; border: 1px solid #eee; padding: 20px; border-radius: 8px; background: #fafafa; }
-        .timer-icon { font-size: 30px; color: #1976d2; margin-bottom: 10px; }
-        .timer-date { font-size: 18px; font-weight: bold; color: var(--nav); }
-        .timer-left { color: #777; font-size: 13px; margin-top: 5px; }
-        
-        .files-section { margin-top: 20px; display: flex; gap: 15px; }
-        .file-btn { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border: 1px solid #ddd; border-radius: 8px; text-decoration: none; color: #333; font-weight: 500; transition: 0.2s; }
-        .file-btn:hover { border-color: var(--primary); color: var(--primary); background: #fffde7; }
-        
-        /* Inputy dla oferty */
-        .offer-box { background: #e3f2fd; padding: 20px; border-radius: 8px; margin-top: 30px; }
-        .input-group { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 3px; }
+        .timer-box { text-align: center; background: #fafafa; border: 1px solid #eee; padding: 20px; border-radius: 8px; }
+        .timer-time { font-size: 24px; font-weight: bold; color: var(--primary); margin: 10px 0; }
         input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        
-        .btn-submit { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-transform: uppercase; margin-top: 10px; transition: 0.3s; }
-        .btn-submit:hover { background: #b71c1c; }
-        
-        /* Tabela dla materiałów */
+        .btn { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { text-align: left; padding: 10px; background: #eee; font-size: 12px; }
-        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #eee; }
     </style>
+    <script>
+        function startTimer(deadline, elementId) {
+            var countDownDate = new Date(deadline).getTime();
+            var x = setInterval(function() {
+                var now = new Date().getTime();
+                var distance = countDownDate - now;
+                if (distance < 0) {
+                    clearInterval(x);
+                    document.getElementById(elementId).innerHTML = "ZAKOŃCZONA";
+                    return;
+                }
+                var d = Math.floor(distance / (1000 * 60 * 60 * 24));
+                var h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                var m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                document.getElementById(elementId).innerHTML = d + "d " + h + "h " + m + "m";
+            }, 1000);
+        }
+    </script>
 </head>
 <body>
 
 <div class="header">
-    <div class="logo">NECKS <span>PORTAL</span></div>
-    <div>
-        Zalogowany: <strong>{{ session['user'] }}</strong>
-        <a href="/logout" style="margin-left:20px; text-decoration:none; color:#777;">Wyloguj</a>
-    </div>
+    <div style="font-size:24px; font-weight:900; color:var(--primary);">NECKS <span>PORTAL</span></div>
+    <div>{{ session['user'] }} <a href="/logout" style="color:#777; margin-left:10px;">Wyloguj</a></div>
 </div>
 
-<div class="container">
-    {% for ex in exchange_data %}
-    <form action="/save_offer/{{ ex.id }}" method="post" enctype="multipart/form-data">
-        <div class="auction-card">
-            <div class="auction-header">
-                <h1 class="auction-title">{{ ex.name }}</h1>
-                <span class="status-badge">Aktywna</span>
-            </div>
-            
-            <div class="auction-grid">
-                <div>
-                    <div class="section-title">Opis towaru / zlecenia</div>
-                    <p style="font-size:14px; color:#555; line-height:1.5;">
-                        {{ ex.desc if ex.desc else 'Brak szczegółowego opisu.' }}
-                    </p>
-                    
-                    {% if ex.cat == 'Spedycja' %}
-                        <div class="detail-row"><span class="detail-label">Rodzaj:</span> <span>Transport Międzynarodowy</span></div>
-                        <div class="detail-row"><span class="detail-label">Incoterms:</span> <span>EXW / DDP (wg załączników)</span></div>
-                    {% endif %}
-                    
-                    {% if ex.f1 or ex.f2 %}
-                    <div class="files-section">
-                        {% if ex.f1 %}<a href="/static/uploads/{{ ex.f1 }}" target="_blank" class="file-btn">📄 Packing List</a>{% endif %}
-                        {% if ex.f2 %}<a href="/static/uploads/{{ ex.f2 }}" target="_blank" class="file-btn">📎 Dokumentacja</a>{% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <div>
-                    <div class="section-title">Szczegóły logistyczne</div>
-                    
-                    {% if ex.cat == 'Spedycja' %}
-                        {% for m in ex.mats %}
-                        <div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;">
-                            <div class="detail-row"><span class="detail-label">Towar:</span> <span>{{ m.name }}</span></div>
-                            <div class="detail-row"><span class="detail-label">Waga:</span> <span>{{ m.net }} kg (Netto)</span></div>
-                            <div class="detail-row"><span class="detail-label">Wymiary/Vol:</span> <span>{{ m.vol }} CBM</span></div>
-                            <div class="detail-row"><span class="detail-label">Kod HS:</span> <span>{{ m.hs }}</span></div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="color:#777; font-style:italic;">Szczegóły pozycji w tabeli poniżej.</div>
-                    {% endif %}
-                </div>
-                
-                <div class="timer-box">
-                    <div class="timer-icon">🕒</div>
-                    <div>Zakończenie aukcji</div>
-                    <div class="timer-date">{{ ex.deadline.replace('T', ' ') }}</div>
-                    <div class="timer-left">Oferty są wiążące.</div>
-                </div>
+{% for ex in exchange_data %}
+<form action="/save_offer/{{ ex.id }}" method="post">
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:20px;">
+            <h1 style="margin:0;">{{ ex.name }}</h1>
+            <span style="background:#2e7d32; color:white; padding:5px 15px; border-radius:20px; font-size:12px; font-weight:bold;">AKTYWNA</span>
+        </div>
+
+        <div class="auction-grid">
+            <div>
+                <div class="section-title">Szczegóły Zlecenia</div>
+                <p>{{ ex.desc }}</p>
+                {% if ex.f1 %}<a href="/static/uploads/{{ ex.f1 }}" target="_blank">📄 Packing List</a>{% endif %}
+                {% if ex.f2 %}<a href="/static/uploads/{{ ex.f2 }}" target="_blank">📎 Inne</a>{% endif %}
             </div>
 
-            <div class="offer-box">
-                <div class="section-title">Twoja Oferta</div>
-                
+            <div>
+                <div class="section-title">Trasa i Warunki</div>
+                <div class="detail-row"><span class="detail-label">Incoterms:</span> <span>{{ ex.incoterms }}</span></div>
+                <div class="detail-row"><span class="detail-label">Port Załadunku:</span> <span>{{ ex.port }}</span></div>
+                <div class="detail-row"><span class="detail-label">Termin Odbioru:</span> <span>{{ ex.pickup }}</span></div>
                 {% if ex.cat == 'Spedycja' %}
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px;">
-                        <div class="input-group">
-                            <label>Koszt PLN</label>
-                            <input type="text" name="sp_pln" value="{{ ex.shipping_bid[0] if ex.shipping_bid else '' }}">
-                        </div>
-                        <div class="input-group">
-                            <label>Koszt EUR</label>
-                            <input type="text" name="sp_eur" value="{{ ex.shipping_bid[1] if ex.shipping_bid else '' }}">
-                        </div>
-                        <div class="input-group">
-                            <label>Koszt USD</label>
-                            <input type="text" name="sp_usd" value="{{ ex.shipping_bid[2] if ex.shipping_bid else '' }}">
-                        </div>
+                    {% for m in ex.mats %}
+                    <div style="border-top:1px solid #eee; margin-top:5px; padding-top:5px;">
+                        <div class="detail-row"><span class="detail-label">Towar:</span> <span>{{ m.name }}</span></div>
+                        <div class="detail-row"><span class="detail-label">Waga:</span> <span>{{ m.net }} kg</span></div>
+                        <div class="detail-row"><span class="detail-label">HS Code:</span> <span>{{ m.hs }}</span></div>
                     </div>
-                    {% if ex.shipping_bid %}
-                        <div style="text-align:right; font-size:18px; color:var(--nav); margin-top:10px;">
-                            Suma przeliczona: <strong>{{ ex.shipping_bid[3] }} USD</strong>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <table>
-                        <tr><th>Nazwa</th><th>Ilość</th><th>Twoja Cena (PLN)</th><th>Opcje</th></tr>
-                        {% for m in ex.mats %}
-                        <tr>
-                            <td>
-                                <strong>{{ m.name }}</strong>
-                                {% if m.admin_file %}<a href="/static/uploads/{{ m.admin_file }}" target="_blank"> (Rysunek)</a>{% endif %}
-                            </td>
-                            <td>{{ m.qty }} {{ 'szt' if ex.cat=='Wycena' else '' }}</td>
-                            <td>
-                                <input type="text" name="price_{{ m.id }}" value="{{ m.saved[0] if m.saved else '' }}" placeholder="0.00">
-                            </td>
-                            <td>
-                                {% if ex.cat == 'Wycena' %}
-                                    <input type="text" name="sub_note_{{ m.id }}" value="{{ m.saved[5] if m.saved else '' }}" placeholder="Uwagi / Zamiennik" style="font-size:11px;">
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </table>
+                    {% endfor %}
                 {% endif %}
+            </div>
 
-                <button type="submit" class="btn-submit">Zatwierdź Ofertę</button>
+            <div class="timer-box">
+                <div style="font-size:30px;">🕒</div>
+                <div>Pozostało czasu:</div>
+                <div id="timer-{{ ex.id }}" class="timer-time">...</div>
+                <script>startTimer("{{ ex.deadline }}", "timer-{{ ex.id }}");</script>
+                <div style="font-size:12px; color:#777; margin-top:5px;">Do: {{ ex.deadline.replace('T', ' ') }}</div>
             </div>
         </div>
-    </form>
-    {% else %}
-        <div style="text-align:center; color:#777; margin-top:50px;">Brak aktywnych aukcji dla Twojej kategorii.</div>
-    {% endfor %}
-</div>
+
+        <div style="background:#e3f2fd; padding:20px; border-radius:8px; margin-top:20px;">
+            <div class="section-title">Twoja Oferta</div>
+            
+            {% if ex.cat == 'Spedycja' %}
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px;">
+                    <div><label>PLN</label><input type="text" name="sp_pln" value="{{ ex.shipping_bid[0] if ex.shipping_bid else '' }}"></div>
+                    <div><label>EUR</label><input type="text" name="sp_eur" value="{{ ex.shipping_bid[1] if ex.shipping_bid else '' }}"></div>
+                    <div><label>USD</label><input type="text" name="sp_usd" value="{{ ex.shipping_bid[2] if ex.shipping_bid else '' }}"></div>
+                </div>
+                <div style="text-align:right; margin-top:10px;">
+                    Twój Ranking: <strong style="color:blue; font-size:18px;">{{ ex.shipping_rank }}</strong>
+                </div>
+            {% else %}
+                <table>
+                    <tr><th>Nazwa</th><th>HS Code</th><th>Ilość</th><th>Cena (PLN)</th><th>Twoja Pozycja</th></tr>
+                    {% for m in ex.mats %}
+                    <tr>
+                        <td>{{ m.name }}</td>
+                        <td>{{ m.hs }}</td>
+                        <td>{{ m.qty }}</td>
+                        <td><input type="text" name="price_{{ m.id }}" value="{{ m.saved[0] if m.saved else '' }}"></td>
+                        <td style="font-weight:bold; color:blue;">{{ m.rank }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            {% endif %}
+            
+            <button class="btn">Zatwierdź Ofertę</button>
+        </div>
+    </div>
+</form>
+{% endfor %}
 
 </body>
 </html>
