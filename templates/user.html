@@ -63,18 +63,19 @@
             </div>
 
             <div>
-                <div class="section-title">Trasa i Warunki</div>
-                <div class="detail-row"><span class="detail-label">Incoterms:</span> <span>{{ ex.incoterms }}</span></div>
-                <div class="detail-row"><span class="detail-label">Port Załadunku:</span> <span>{{ ex.port }}</span></div>
-                <div class="detail-row"><span class="detail-label">Termin Odbioru:</span> <span>{{ ex.pickup }}</span></div>
+                <div class="section-title">Warunki</div>
                 {% if ex.cat == 'Spedycja' %}
+                    <div class="detail-row"><span class="detail-label">Incoterms:</span> <span>{{ ex.incoterms }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Port Załadunku:</span> <span>{{ ex.port }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Termin Odbioru:</span> <span>{{ ex.pickup }}</span></div>
                     {% for m in ex.mats %}
                     <div style="border-top:1px solid #eee; margin-top:5px; padding-top:5px;">
                         <div class="detail-row"><span class="detail-label">Towar:</span> <span>{{ m.name }}</span></div>
                         <div class="detail-row"><span class="detail-label">Waga:</span> <span>{{ m.net }} kg</span></div>
-                        <div class="detail-row"><span class="detail-label">HS Code:</span> <span>{{ m.hs }}</span></div>
                     </div>
                     {% endfor %}
+                {% else %}
+                    <div style="color:#777;">Szczegóły w tabeli poniżej.</div>
                 {% endif %}
             </div>
 
@@ -101,12 +102,19 @@
                 </div>
             {% else %}
                 <table>
-                    <tr><th>Nazwa</th><th>HS Code</th><th>Ilość</th><th>Cena (PLN)</th><th>Twoja Pozycja</th></tr>
+                    <tr><th>Nazwa</th>
+                        {% if ex.cat == 'Material' %}<th>Parametry</th>{% else %}<th>Ilość</th>{% endif %}
+                        <th>{{ 'Cena (zł/kg)' if ex.cat=='Material' else 'Cena (PLN)' }}</th>
+                        <th>Twoja Pozycja</th>
+                    </tr>
                     {% for m in ex.mats %}
                     <tr>
                         <td>{{ m.name }}</td>
-                        <td>{{ m.hs }}</td>
-                        <td>{{ m.qty }}</td>
+                        {% if ex.cat == 'Material' %}
+                            <td>{{ m.qty }} szt * {{ m.len }} m * {{ m.kg_m }} kg/m = <strong>{{ m.net }} kg</strong></td>
+                        {% else %}
+                            <td>{{ m.qty }}</td>
+                        {% endif %}
                         <td><input type="text" name="price_{{ m.id }}" value="{{ m.saved[0] if m.saved else '' }}"></td>
                         <td style="font-weight:bold; color:blue;">{{ m.rank }}</td>
                     </tr>
